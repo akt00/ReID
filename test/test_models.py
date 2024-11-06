@@ -16,11 +16,11 @@ class TestOnGPU:
         model = AlignedResNet50()
         model.train().to(device=self.DEVICE)
         ge, le = model(x)
-        assert (8, 2048, 1) == ge.shape
+        assert (8, 2048) == ge.shape
         assert (8, 128, 7) == le.shape
 
     def test_aligned_resnet50_eval(self):
         x = torch.randn((8, 3, 224, 224)).to(device=self.DEVICE)
         model = AlignedResNet50()
         model.eval().to(device=self.DEVICE)
-        assert (8, 2048, 1) == model(x).shape
+        assert (8, 2048) == model(x).shape

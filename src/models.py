@@ -34,11 +34,11 @@ class AlignedResNet50(nn.Module):
     def forward(self, x: Tensor) -> Tensor | tuple[Tensor, Tensor]:
         emb = self.backbone(x)
         ge = self.global_extractor(emb)
-        ge = ge.squeeze(-1)
+        ge = ge.squeeze()
 
         if self.training:
             le = self.local_extractor(emb)
-            le = le.squeeze(-1)
+            le = le.squeeze()
             return ge, le
 
         return ge
