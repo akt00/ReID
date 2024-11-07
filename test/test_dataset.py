@@ -1,7 +1,7 @@
-from src import loader
+from src import dataset
 
 
 class TestMarket1501:
     def test_instance(self):
-        _ = loader.Market1501()
+        _ = dataset.Market1501()
         assert True

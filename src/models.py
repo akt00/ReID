@@ -12,8 +12,9 @@ class HorizontalMaxPool2d(nn.Module):
 
 
 class AlignedResNet50(nn.Module):
-    def __init__(self):
+    def __init__(self, aligned: bool = False):
         super().__init__()
+        self.alinged = aligned
         model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
         self.backbone = nn.Sequential(*list(model.children())[:-2])
         self.global_extractor = nn.AdaptiveAvgPool2d(1)
@@ -36,7 +37,7 @@ class AlignedResNet50(nn.Module):
         ge = self.global_extractor(emb)
         ge = ge.squeeze()
 
-        if self.training:
+        if self.training and self.alinged:
             le = self.local_extractor(emb)
             le = le.squeeze()
             return ge, le

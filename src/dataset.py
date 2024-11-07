@@ -1,6 +1,12 @@
-from pathlib import Path
 from glob import glob
+from pathlib import Path
 import re
+
+import torch
+from torch import float32, Tensor
+from torch.utils.data import Dataset
+from torchvision.io import read_image, ImageReadMode
+from torchvision.transforms import v2
 
 
 class Market1501:
@@ -12,9 +18,15 @@ class Market1501:
 
         self._validate_dir()
 
-        train, num_train_pids, num_train_imgs = self._process_dir(self.train_dir, relabel=True)
-        query, num_query_pids, num_query_imgs = self._process_dir(self.query_dir, relabel=False)
-        gallery, num_gallery_pids, num_gallery_imgs = self._process_dir(self.gallery_dir, relabel=False)
+        train, num_train_pids, num_train_imgs = self._process_dir(
+            self.train_dir, relabel=True
+        )
+        query, num_query_pids, num_query_imgs = self._process_dir(
+            self.query_dir, relabel=False
+        )
+        gallery, num_gallery_pids, num_gallery_imgs = self._process_dir(
+            self.gallery_dir, relabel=False
+        )
         num_total_pids = num_train_pids + num_query_pids
         num_total_imgs = num_train_imgs + num_query_imgs + num_gallery_imgs
 
@@ -75,3 +87,41 @@ class Market1501:
         num_imgs = len(dataset)
 
         return dataset, num_pids, num_imgs
+
+
+class ImageDataset(Dataset):
+    def __init__(
+        self,
+        dataset: list,
+        transform: v2.Compose = v2.Compose(
+            [
+                v2.Resize(size=(224, 224)),
+                v2.ToDtype(dtype=float32, scale=True),
+            ]
+        ),
+    ):
+        self.dataset = dataset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index: int) -> list[Tensor, Tensor]:
+        img_path, pid, _ = self.dataset[index]
+        img = read_image(img_path, ImageReadMode.RGB)
+        img = self.transform(img)
+        pid = torch.tensor(pid).long()
+        return img, pid
+
+
+if __name__ == "__main__":
+    from torch.utils.data import DataLoader
+
+    batch_size = 128
+    dataset = ImageDataset(Market1501().train)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    for a, b in loader:
+        for i in range(batch_size):
+            positive_mask = (b == b[i]) & (torch.arange(batch_size) != i)
+            print(positive_mask)
