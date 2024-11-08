@@ -10,7 +10,9 @@ from torchvision.transforms import v2
 
 
 class Market1501:
-    def __init__(self, root: Path = Path("Market-1501-v15.09.15")):
+    def __init__(
+        self, root: Path = Path("Market-1501-v15.09.15"), verbose: bool = False
+    ):
         self.dataset_dir = root
         self.train_dir = root / "bounding_box_train"
         self.query_dir = root / "query"
@@ -27,20 +29,24 @@ class Market1501:
         gallery, num_gallery_pids, num_gallery_imgs = self._process_dir(
             self.gallery_dir, relabel=False
         )
-        num_total_pids = num_train_pids + num_query_pids
-        num_total_imgs = num_train_imgs + num_query_imgs + num_gallery_imgs
 
-        print("=> Market1501 loaded")
-        print("Dataset statistics:")
-        print("  ------------------------------")
-        print("  subset   | # ids | # images")
-        print("  ------------------------------")
-        print("  train    | {:5d} | {:8d}".format(num_train_pids, num_train_imgs))
-        print("  query    | {:5d} | {:8d}".format(num_query_pids, num_query_imgs))
-        print("  gallery  | {:5d} | {:8d}".format(num_gallery_pids, num_gallery_imgs))
-        print("  ------------------------------")
-        print("  total    | {:5d} | {:8d}".format(num_total_pids, num_total_imgs))
-        print("  ------------------------------")
+        if verbose:
+            num_total_pids = num_train_pids + num_query_pids
+            num_total_imgs = num_train_imgs + num_query_imgs + num_gallery_imgs
+
+            print("=> Market1501 loaded")
+            print("Dataset statistics:")
+            print("  ------------------------------")
+            print("  subset   | # ids | # images")
+            print("  ------------------------------")
+            print("  train    | {:5d} | {:8d}".format(num_train_pids, num_train_imgs))
+            print("  query    | {:5d} | {:8d}".format(num_query_pids, num_query_imgs))
+            print(
+                "  gallery  | {:5d} | {:8d}".format(num_gallery_pids, num_gallery_imgs)
+            )
+            print("  ------------------------------")
+            print("  total    | {:5d} | {:8d}".format(num_total_pids, num_total_imgs))
+            print("  ------------------------------")
 
         self.train = train
         self.query = query
@@ -112,16 +118,3 @@ class ImageDataset(Dataset):
         img = self.transform(img)
         pid = torch.tensor(pid).long()
         return img, pid
-
-
-if __name__ == "__main__":
-    from torch.utils.data import DataLoader
-
-    batch_size = 128
-    dataset = ImageDataset(Market1501().train)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-
-    for a, b in loader:
-        for i in range(batch_size):
-            positive_mask = (b == b[i]) & (torch.arange(batch_size) != i)
-            print(positive_mask)

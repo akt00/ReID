@@ -16,7 +16,7 @@ def triplet_semi_hard_negative_mining(
     for i in range(batch_size):
         #  anchor = embeddings[i]
         p_mask = (pids == pids[i]) & (torch.arange(batch_size) > i)
-        n_mask = pids != pids[i]
+        n_mask = (pids != pids[i])
 
         p_dists = pairwise_dists[i][p_mask]
         n_dists = pairwise_dists[i][n_mask]
@@ -26,9 +26,8 @@ def triplet_semi_hard_negative_mining(
 
         for p_dist in p_dists:
             # formula: https://arxiv.org/pdf/1503.03832
-            semi_hard_negatives = n_dists[
-                (p_dist < n_dists) & (n_dists < (p_dist + margin))
-            ]
+            _mask = (p_dist < n_dists) & (n_dists < (p_dist + margin))
+            semi_hard_negatives = n_dists[_mask]
 
             n = len(semi_hard_negatives)
 
@@ -48,13 +47,3 @@ def triplet_semi_hard_negative_mining(
         return loss / triplet_count
     else:
         return loss
-
-
-if __name__ == "__main__":
-    e = torch.randn((800, 2048))
-    model = nn.Sequential(nn.Linear(2048, 2048))
-    out = model(e)
-    t = torch.randint(0, 750, (800,)).long()
-    res = triplet_semi_hard_negative_mining(out, t)
-    print(res.dtype, res)
-    res.backward()
