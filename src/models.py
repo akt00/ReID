@@ -34,12 +34,12 @@ class AlignedResNet50(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor | tuple[Tensor, Tensor]:
         emb = self.backbone(x)
-        ge = self.global_extractor(emb)
-        ge = ge.squeeze()
+        ge: Tensor = self.global_extractor(emb)
+        ge = ge.squeeze(dim=-1).squeeze(dim=-1)
 
         if self.training and self.alinged:
-            le = self.local_extractor(emb)
-            le = le.squeeze()
+            le: Tensor = self.local_extractor(emb)
+            le = le.squeeze(dim=-1)
             return ge, le
 
         return ge

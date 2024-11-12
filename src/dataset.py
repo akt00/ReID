@@ -103,6 +103,7 @@ class ImageDataset(Dataset):
             [
                 v2.Resize(size=(224, 224)),
                 v2.ToDtype(dtype=float32, scale=True),
+                v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         ),
     ):
@@ -116,5 +117,5 @@ class ImageDataset(Dataset):
         img_path, pid, _ = self.dataset[index]
         img = read_image(img_path, ImageReadMode.RGB)
         img = self.transform(img)
-        pid = torch.tensor(pid).long()
+        pid = torch.tensor(pid, dtype=torch.long)
         return img, pid

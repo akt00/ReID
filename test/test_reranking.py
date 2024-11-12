@@ -8,21 +8,21 @@ from src import reranking
 def test_batch_euclidean():
     x = torch.randn((1, 2048))
     y = torch.randn((30, 2048))
-    res = reranking.batch_euclidean(x, y, False)
+    res = reranking.batched_euclidean(x, y, False)
     assert res.shape == (1, 30)
 
 
 def test_batch_euclidean_batched():
     x = torch.randn((10, 2048))
     y = torch.randn((30, 2048))
-    res = reranking.batch_euclidean(x, y, False)
+    res = reranking.batched_euclidean(x, y, False)
     assert res.shape == (10, 30)
 
 
 def test_batch_euclidean_normalize():
     x = torch.randn((1, 2048))
     y = torch.randn((30, 2048))
-    res = reranking.batch_euclidean(x, y, True)
+    res = reranking.batched_euclidean(x, y, True)
     res = res.mean().item()
     assert 0 <= res and res <= 2
 

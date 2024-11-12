@@ -108,30 +108,44 @@ class ReRanker:
         Returns:
             1d tensor containing either 0 or 1 indicating the correct prediction
         """
-        pred_labels = self.predict(x)
-        # print(pred_labels)
+        preds = self.predict(x)
+        # print(preds)
         if knn:
-            pred_labels = pred_labels.mode().values
-            return (y == pred_labels).long()
+            preds = preds.mode().values
+            return (preds == y).long()
         else:
-            target = y.unsqueeze(-1).expand_as(pred_labels)
-            return (target == pred_labels).any(-1).long()
+            target = y.unsqueeze(-1).expand_as(preds)
+            return (preds == target).any(dim=-1).long()
 
 
 class ClusterReRanker:
     def __init__(self, clusters: dict | None = None):
-        self.clusters = []
-        self.ttls = []
+        self.clusters: list[TrackID] = []
+        self.ttls: list[int] = []
         if clusters is not None:
             for k, v in clusters.items():
-                track = TrackID(int(k))
+                track = TrackID(k)
                 track.update(v)
                 self._append_new_cluster(track)
 
     def predict(self, x: Tensor) -> Tensor:
+        """vectorization not supported yet"""
         dists = []
-        for c in clusters:
-            ...
+
+        for c in self.clusters:
+            preds: Tensor = c(x)
+            dists.append(preds)
+
+        dists = torch.stack(dists, dim=-1)
+        # print(dists)
+        indices = dists.min(dim=-1).indices
+        preds = torch.tensor([self.clusters[i].id for i in indices], dtype=torch.long)
+
+        return preds
+
+    def evalute(self, x: Tensor, y: Tensor) -> Tensor:
+        preds = self.predict(x)
+        return (preds == y).long()
 
     def _append_new_cluster(self, track: TrackID):
         self.clusters.append(track)
@@ -160,8 +174,7 @@ if __name__ == "__main__":
     for i in range(10):
         clusters.update({i: torch.randn((10, 2048))})
     ranker = ClusterReRanker(clusters)
-    print(ranker.clusters)
-    for i in ranker.clusters:
-        x = torch.randn((1, 2048))
-        res = i(x)
-        print(res)
+    x = torch.randn((8, 2048))
+    print(ranker.predict(x))
+    y = torch.randint(0, 10, (8,))
+    print(ranker.evalute(x, y))
