@@ -1,0 +1,22 @@
+dataset: Market-1501-v15.09.15
+market1501: true  # market1501 or custom dataset
+aligned: false
+batch: 448
+optimizer: SGD  # SGD | AdamW
+sgd:
+  momentum: 0.9
+  decay: !!float 1e-4  # weight decay
+  nesterov: true
+adamw:
+  betas:
+    - 0.9  # beta 1
+    - 0.95  # beta 2
+  decay: !!float 1e-1  # weight decay
+epochs: 100
+workers: 2
+persistent: true
+scaler: true
+lr: 0.05
+step: 10
+gamma: 0.5
+margin: 0.5

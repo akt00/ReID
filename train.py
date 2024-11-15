@@ -5,59 +5,86 @@ from torch.utils.data import DataLoader
 import yaml
 
 from src.dataset import Market1501, ImageDataset
-from src.reranking import ClusterReRanker
 from src.models import AlignedResNet50
-from tqdm import tqdm
+from src.engine import train_one_epoch
 
 
 def train(cfg: dict):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    dataset = Market1501()
+    if cfg["market1501"]:
+        dataset = Market1501(Path(cfg["dataset"]))
+    else:
+        raise NotImplementedError()
 
-    clusters: dict[int, list] = {}
+    train = ImageDataset(dataset=dataset.train)
+    train_loader = DataLoader(
+        dataset=train,
+        batch_size=cfg["batch"],
+        shuffle=False,
+        num_workers=cfg["workers"],
+        persistent_workers=cfg["persistent"],
+    )
 
-    model = AlignedResNet50()
-    model.eval().cuda()
+    model = AlignedResNet50(aligned=cfg["aligned"])
 
-    # cls_ranker = ClusterReRanker(clusters=clusters)
-    gallery = ImageDataset(dataset=dataset.gallery)
-    gallery_loader = DataLoader(dataset=gallery, batch_size=128, num_workers=2)
-    queries = ImageDataset(dataset=dataset.query)
+    match cfg["optimizer"].lower():
+        case "sgd":
+            sgd_cfg = cfg["sgd"]
+            optim = torch.optim.SGD(
+                params=model.parameters(),
+                lr=cfg["lr"],
+                momentum=sgd_cfg["momentum"],
+                weight_decay=sgd_cfg["decay"],
+                nesterov=sgd_cfg["nesterov"],
+            )
+        case "adamw":
+            adamw_cfg = cfg["adamw"]
+            optim = torch.optim.AdamW(
+                params=model.parameters(),
+                lr=cfg["lr"],
+                betas=adamw_cfg["betas"],
+                weight_decay=adamw_cfg["decay"],
+            )
+        case _:
+            raise NotImplementedError(f"Unsupported optimizer: {cfg['optimizer']}")
 
-    with torch.no_grad():
-        embs_list = []
-        pid_list = []
-        for imgs, pids in tqdm(gallery_loader):
-            embs = model(imgs.cuda())
-            embs_list.append(embs)
-            pid_list.append(pids)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer=optim, step_size=cfg["step"], gamma=cfg["gamma"]
+    )
 
-        embs = torch.concat(embs_list, dim=0)
-        pids = torch.concat(pid_list, dim=0)
+    scaler = torch.GradScaler() if cfg["scaler"] else None
 
-        for e, p in zip(embs, pids):
-            print(e.shape, p.shape)
-            p = int(p.item())
-            if p not in clusters.keys():
-                clusters.update({p: [e]})
-            else:
-                clusters[p].append(e)
+    epochs = cfg["epochs"]
 
-        for k in clusters.keys():
-            clusters[k] = torch.stack(clusters[k], dim=0)
-        
-        for k, v in clusters.items():
-            print(k, v.shape)
+    for e in range(epochs):
+        print(f"----- Epoch {e} ----- at LR: {lr_scheduler.get_last_lr()[-1]}")
 
-        ranker = ClusterReRanker(clusters=clusters)
+        loss, count = train_one_epoch(
+            model=model,
+            optim=optim,
+            data_loader=train_loader,
+            epoch=e,
+            scaler=scaler,
+            lr_scheduler=lr_scheduler,
+            margin=cfg["margin"],
+            aligned_loss=cfg["aligned"],
+            device=device,
+        )
 
-        for img, pid in queries:
-            pred = model(img.unsqueeze(0).cuda())
-            print(pred.shape)
+        print(f"Train:  Loss:{loss}  Margin violations:{count}")
 
-            break
+    print("Done!")
 
 
 if __name__ == "__main__":
-    train(None)
+    path = Path("cfg/config.yaml")
+
+    with open(path) as fd:
+        try:
+            cfg = yaml.safe_load(fd)
+        except yaml.YAMLError as e:
+            print(f"Failed to load the YAML file: {e}")
+            exit(1)
+
+    train(cfg=cfg)

@@ -33,7 +33,7 @@ class AlignedResNet50(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor | tuple[Tensor, Tensor]:
-        emb = self.backbone(x)
+        emb: Tensor = self.backbone(x)
         ge: Tensor = self.global_extractor(emb)
         ge = ge.squeeze(dim=-1).squeeze(dim=-1)
 

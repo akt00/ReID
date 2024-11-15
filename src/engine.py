@@ -1,63 +1,68 @@
-from pathlib import Path
-
 import torch
 from torch.utils.data import DataLoader
-import yaml
-
-from src.dataset import Market1501, ImageDataset
-from src.reranking import ClusterReRanker
-from src.models import AlignedResNet50
 from tqdm import tqdm
 
+from src.losses import triplet_semi_hard_negative_mining
 
-def train(cfg: dict):
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    dataset = Market1501()
+def train_one_epoch(
+    model: torch.nn.Module,
+    optim: torch.optim.Optimizer,
+    data_loader: DataLoader,
+    epoch: int,
+    scaler: torch.GradScaler | None = None,
+    lr_scheduler: torch.optim.lr_scheduler.LRScheduler = None,
+    margin: int = 0.5,
+    aligned_loss: bool = False,
+    device: torch.device = torch.device("cuda"),
+) -> tuple[float, int]:
 
-    clusters: dict[int, list] = {}
+    model.train()
+    model.to(device=device)
 
-    model = AlignedResNet50()
-    model.eval().cuda()
+    warmup_lr = None
+    # warmup lr
+    if epoch == 0:
+        warmup_factor = 1.0 / 1000
+        warmup_iters = min(1000, len(data_loader) - 1)
 
-    # cls_ranker = ClusterReRanker(clusters=clusters)
-    gallery = ImageDataset(dataset=dataset.gallery)
-    gallery_loader = DataLoader(dataset=gallery, batch_size=128, num_workers=2)
-    queries = ImageDataset(dataset=dataset.query)
+        warmup_lr = torch.optim.lr_scheduler.LinearLR(
+            optimizer=optim, start_factor=warmup_factor, total_iters=warmup_iters
+        )
 
-    with torch.no_grad():
-        embs_list = []
-        pid_list = []
-        for imgs, pids in tqdm(gallery_loader):
-            embs = model(imgs.cuda())
-            embs_list.append(embs)
-            pid_list.append(pids)
+    total_violations = 0
+    loss = 0.0
 
-        embs = torch.concat(embs_list, dim=0)
-        pids = torch.concat(pid_list, dim=0)
+    for imgs, pids in tqdm(data_loader):
+        imgs: torch.Tensor = imgs.to(device=device)
+        pids: torch.Tensor = pids.to(device=device)
 
-        for e, p in zip(embs, pids):
-            print(e.shape, p.shape)
-            p = int(p.item())
-            if p not in clusters.keys():
-                clusters.update({p: [e]})
+        with torch.amp.autocast(device_type="cuda", enabled=scaler is not None):
+            preds = model(imgs)
+
+            if aligned_loss:
+                raise NotImplementedError()
             else:
-                clusters[p].append(e)
+                loss, count = triplet_semi_hard_negative_mining(
+                    embeddings=preds, pids=pids, margin=margin
+                )
 
-        for k in clusters.keys():
-            clusters[k] = torch.stack(clusters[k], dim=0)
-        
-        for k, v in clusters.items():
-            print(k, v.shape)
+        loss += loss.item()
+        total_violations += count
+        optim.zero_grad()
 
-        ranker = ClusterReRanker(clusters=clusters)
+        if scaler is not None:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer=optim)
+            scaler.update()
+        else:
+            loss.backward()
+            optim.step()
 
-        for img, pid in queries:
-            pred = model(img.unsqueeze(0).cuda())
-            print(pred.shape)
+        if warmup_lr is not None:
+            warmup_lr.step()
 
-            break
+        if lr_scheduler is not None:
+            lr_scheduler.step()
 
-
-if __name__ == "__main__":
-    train(None)
+    return loss / len(data_loader), total_violations

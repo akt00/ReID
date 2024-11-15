@@ -3,7 +3,7 @@ from torch import Tensor, nn
 
 
 def triplet_semi_hard_negative_mining(
-    embeddings: Tensor, pids: Tensor, margin: float = 0.2, reduction: str = "mean"
+    embeddings: Tensor, pids: Tensor, margin: float = 0.5, reduction: str = "mean"
 ) -> Tensor:
     device = embeddings.device
 
@@ -15,7 +15,7 @@ def triplet_semi_hard_negative_mining(
 
     for i in range(batch_size):
         #  anchor = embeddings[i]
-        p_mask = (pids == pids[i]) & (torch.arange(batch_size) > i)
+        p_mask = (pids == pids[i]) & (torch.arange(batch_size, device=device) > i)
         n_mask = (pids != pids[i])
 
         p_dists = pairwise_dists[i][p_mask]
@@ -43,7 +43,13 @@ def triplet_semi_hard_negative_mining(
                     reduction="sum",
                 )
 
-    if triplet_count > 0 and reduction == "mean":
-        return loss / triplet_count
+    if triplet_count == 0:
+        loss += pairwise_dists[0][0]
+        return loss, triplet_count
+
+    if reduction == "mean":
+        return loss / triplet_count, triplet_count
+    elif reduction == "sum":
+        return loss.sum(), triplet_count
     else:
-        return loss
+        raise NotImplementedError(f"Unsupported reduction mode: {reduction}")
