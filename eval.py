@@ -5,49 +5,34 @@ from torch.utils.data import DataLoader
 import yaml
 
 from src.dataset import Market1501, ImageDataset
-from src.reranking import ClusterReRanker
 from src.models import AlignedResNet50
-from tqdm import tqdm
+from src.engine import evaluate
 
 
-def train(cfg: dict):
-    import cv2
-
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
+def eval(cfg: dict):
     dataset = Market1501()
 
-    clusters: dict[int, list] = {}
-
     model = AlignedResNet50()
-    model.eval().cuda()
+    ckpt = torch.load("best.pth", weights_only=True)
+    model.load_state_dict(ckpt["model"])
 
-    # cls_ranker = ClusterReRanker(clusters=clusters)
     gallery = ImageDataset(dataset=dataset.gallery)
     gallery_loader = DataLoader(dataset=gallery, batch_size=128, num_workers=2)
-    queries = ImageDataset(dataset=dataset.query)
 
-    with torch.no_grad():
-        for imgs, pids in tqdm(gallery_loader):
-            embs = model(imgs.cuda())
-            for e, p in zip(embs, pids):
-                p = int(p.item())
-                if p not in clusters.keys():
-                    clusters.update({p: [e]})
-                else:
-                    clusters[p].append(e)
+    query = ImageDataset(dataset=dataset.query)
+    query_loader = DataLoader(dataset=query, batch_size=128, num_workers=2)
 
-        for k in clusters.keys():
-            clusters[k] = torch.stack(clusters[k], dim=0)
-
-        ranker = ClusterReRanker(clusters=clusters)
-
-        for img, pid in queries:
-            pred = model(img.unsqueeze(0).cuda())
-            print(pred.shape)
-
-            break
+    evaluate(model, query_loader, gallery_loader)
 
 
 if __name__ == "__main__":
-    train(None)
+    path = Path("cfg/config.yaml")
+
+    with open(path) as fd:
+        try:
+            cfg = yaml.safe_load(fd)
+        except yaml.YAMLError as e:
+            print(f"Failed to load the YAML file: {e}")
+            exit(1)
+
+    eval(cfg=cfg)

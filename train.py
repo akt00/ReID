@@ -6,7 +6,7 @@ import yaml
 
 from src.dataset import Market1501, ImageDataset
 from src.models import AlignedResNet50
-from src.engine import train_one_epoch
+from src.engine import train_one_epoch, evaluate
 
 
 def train(cfg: dict):
@@ -21,6 +21,24 @@ def train(cfg: dict):
     train_loader = DataLoader(
         dataset=train,
         batch_size=cfg["batch"],
+        shuffle=False,
+        num_workers=cfg["workers"],
+        persistent_workers=cfg["persistent"],
+    )
+
+    gallery = ImageDataset(dataset=dataset.gallery)
+    gallery_loader = DataLoader(
+        dataset=gallery,
+        batch_size=8,
+        shuffle=False,
+        num_workers=cfg["workers"],
+        persistent_workers=cfg["persistent"],
+    )
+
+    query = ImageDataset(dataset=dataset.query)
+    query_loader = DataLoader(
+        dataset=query,
+        batch_size=8,
         shuffle=False,
         num_workers=cfg["workers"],
         persistent_workers=cfg["persistent"],
@@ -56,6 +74,7 @@ def train(cfg: dict):
     scaler = torch.GradScaler() if cfg["scaler"] else None
 
     epochs = cfg["epochs"]
+    best_acc = 0.0
 
     for e in range(epochs):
         print(f"----- Epoch {e} ----- at LR: {lr_scheduler.get_last_lr()[-1]}")
@@ -64,7 +83,6 @@ def train(cfg: dict):
             model=model,
             optim=optim,
             data_loader=train_loader,
-            epoch=e,
             scaler=scaler,
             lr_scheduler=lr_scheduler,
             margin=cfg["margin"],
@@ -72,7 +90,30 @@ def train(cfg: dict):
             device=device,
         )
 
-        print(f"Train:  Loss:{loss}  Margin violations:{count}")
+        print(f"Train:  Loss:{loss:.12f}  Margin Violations:{count}")
+
+        loss, violations, topk_acc, cluster_acc = evaluate(
+            model=model,
+            query_loader=query_loader,
+            gallery_loader=gallery_loader,
+            topk=cfg["topk"],
+            knn=cfg["knn"],
+        )
+
+        print(
+            f"Val:  Loss:{loss}  Total Violations:{violations}  TopK ACC:{topk_acc:.4f}  Cluster ACC:{cluster_acc:.4f}"
+        )
+
+        if best_acc < cluster_acc:
+            best_acc = cluster_acc
+            torch.save(
+                {
+                    "epoch": e,
+                    "model": model.state_dict(),
+                    "optimizer": optim.state_dict(),
+                },
+                Path("best.pth"),
+            )
 
     print("Done!")
 

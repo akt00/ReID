@@ -1,7 +1,15 @@
 dataset: Market-1501-v15.09.15
 market1501: true  # market1501 or custom dataset
-aligned: false
-batch: 448
+aligned: false  # use local distance loss
+epochs: 50
+batch: 412
+lr: 0.05
+scaler: true  # automatic mixed precision training
+step: 8  # StepLR steps
+gamma: 0.5  # StepLR gamma
+margin: 0.5  # triplet loss margin
+workers: 2
+persistent: true
 optimizer: SGD  # SGD | AdamW
 sgd:
   momentum: 0.9
@@ -12,11 +20,5 @@ adamw:
     - 0.9  # beta 1
     - 0.95  # beta 2
   decay: !!float 1e-1  # weight decay
-epochs: 100
-workers: 2
-persistent: true
-scaler: true
-lr: 0.05
-step: 10
-gamma: 0.5
-margin: 0.5
+topk: 3  # top-k for top-k re-ranking, n_neighbors for KNN
+knn: true  # use KNN for re-ranking

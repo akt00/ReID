@@ -60,12 +60,17 @@ class TrackID:
 
 
 class ReRanker:
-    def __init__(self, topk: int = 5):
+    def __init__(self, topk: int = 3, device: torch.device = torch.device("cuda")):
         self.topk = topk
-        self.vector_store = []
-        self.targets = []
+        self.device = device
+        self.vector_store: list[Tensor] = []
+        self.targets: list[Tensor] = []
 
-    def append(self, x: Tensor, y: Tensor):
+    def __len__(self) -> int:
+        assert len(self.vector_store) == len(self.targets)
+        return len(self.vector_store)
+
+    def append(self, x: Tensor, y: Tensor | list):
         """stores embeddings
         Args:
             x: embedding tensor with shape (batch, n, ...)
@@ -74,7 +79,10 @@ class ReRanker:
         assert len(x.shape) > 1
         x = x.reshape(x.size(0), -1)
         self.vector_store += list(x)
-        self.targets += y.tolist()
+        if isinstance(y, Tensor):
+            self.targets += y.tolist()
+        else:
+            self.targets += y
 
     def predict(self, x: Tensor) -> Tensor:
         """predicts the top-k class labels
@@ -84,18 +92,16 @@ class ReRanker:
             the predicted class labels in (batch, top-k)
         """
         x = x.reshape(x.size(0), -1)
-        n, dim = x.shape
+        x = x.to(device=self.device)
+        # n, dim = x.shape
         vs = torch.stack(self.vector_store)
-        m, _ = vs.shape
+        vs = vs.to(device=self.device)
+        # m, _ = vs.shape
+        dists = batched_euclidean(x=x, y=vs, cosine=True)
+        topk_preds = dists.topk(self.topk, largest=False, dim=-1)
 
-        x = x[:, None, :].expand(n, m, dim)
-        vs = vs[None, :, :].expand(n, m, dim)
-
-        l2_norms: Tensor = torch.linalg.norm((x - vs), ord=2, dim=-1, keepdim=False)
-        topk_preds = l2_norms.topk(self.topk, dim=-1)
         indices = topk_preds.indices
-
-        targets = torch.tensor(self.targets).long()
+        targets = torch.tensor(self.targets, device=self.device).long()
 
         return targets[indices]
 
@@ -108,8 +114,11 @@ class ReRanker:
         Returns:
             1d tensor containing either 0 or 1 indicating the correct prediction
         """
+        x = x.to(device=self.device)
+        y = y.to(device=self.device)
+
         preds = self.predict(x)
-        # print(preds)
+
         if knn:
             preds = preds.mode().values
             return (preds == y).long()
@@ -119,9 +128,13 @@ class ReRanker:
 
 
 class ClusterReRanker:
-    def __init__(self, clusters: dict | None = None):
+    def __init__(
+        self, clusters: dict | None = None, device: torch.device = torch.device("cuda")
+    ):
+        self.device = device
         self.clusters: list[TrackID] = []
         self.ttls: list[int] = []
+
         if clusters is not None:
             for k, v in clusters.items():
                 track = TrackID(k)
@@ -130,6 +143,7 @@ class ClusterReRanker:
 
     def predict(self, x: Tensor) -> Tensor:
         """vectorization not supported yet"""
+        x = x.to(device=self.device)
         dists = []
 
         for c in self.clusters:
@@ -137,13 +151,15 @@ class ClusterReRanker:
             dists.append(preds)
 
         dists = torch.stack(dists, dim=-1)
-        # print(dists)
         indices = dists.min(dim=-1).indices
-        preds = torch.tensor([self.clusters[i].id for i in indices], dtype=torch.long)
-
+        preds = torch.tensor(
+            [self.clusters[i].id for i in indices], dtype=torch.long, device=self.device
+        )
         return preds
 
     def evalute(self, x: Tensor, y: Tensor) -> Tensor:
+        x = x.to(device=self.device)
+        y = y.to(device=self.device)
         preds = self.predict(x)
         return (preds == y).long()
 
@@ -154,27 +170,3 @@ class ClusterReRanker:
     def __len__(self) -> int:
         assert len(self.clusters) == len(self.ttls)
         return len(self.clusters)
-
-
-if __name__ == "__main__":
-    """
-    x = torch.randn((1000, 2048))
-    y = torch.randint(0, 5, (1000,))
-    print(y.shape)
-    ranker = ReRanker()
-    ranker.append(x, y)
-
-    inputs = torch.randn(4, 2048)
-    tgt = torch.randint(0, 5, (4,))
-    preds = ranker.evaluate(inputs, tgt, False)
-    print(tgt)
-    print(preds)
-    """
-    clusters = {}
-    for i in range(10):
-        clusters.update({i: torch.randn((10, 2048))})
-    ranker = ClusterReRanker(clusters)
-    x = torch.randn((8, 2048))
-    print(ranker.predict(x))
-    y = torch.randint(0, 10, (8,))
-    print(ranker.evalute(x, y))
