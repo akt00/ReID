@@ -2,6 +2,7 @@
 Market-1501-v15.09.15/
 *temp*.*
 *.pth
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

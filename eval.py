@@ -10,19 +10,38 @@ from src.engine import evaluate
 
 
 def eval(cfg: dict):
-    dataset = Market1501()
+    path = Path(cfg["dataset"])
+    dataset = Market1501(path)
 
     model = AlignedResNet50()
-    ckpt = torch.load("best.pth", weights_only=True)
+    ckpt = torch.load(cfg["weights"], weights_only=True)
     model.load_state_dict(ckpt["model"])
 
     gallery = ImageDataset(dataset=dataset.gallery)
-    gallery_loader = DataLoader(dataset=gallery, batch_size=128, num_workers=2)
+    gallery_loader = DataLoader(
+        dataset=gallery,
+        batch_size=8,
+        shuffle=False,
+        num_workers=cfg["workers"],
+        persistent_workers=cfg["persistent"],
+    )
 
     query = ImageDataset(dataset=dataset.query)
-    query_loader = DataLoader(dataset=query, batch_size=128, num_workers=2)
+    query_loader = DataLoader(
+        dataset=query,
+        batch_size=8,
+        shuffle=False,
+        num_workers=cfg["workers"],
+        persistent_workers=cfg["persistent"],
+    )
 
-    evaluate(model, query_loader, gallery_loader)
+    loss, violations, topk_acc, cluster_acc = evaluate(
+        model=model, query_loader=query_loader, gallery_loader=gallery_loader
+    )
+
+    print(
+        f"Val:  Loss:{loss}  Total Violations:{violations}  TopK ACC:{topk_acc:.4f}  Cluster ACC:{cluster_acc:.4f}"
+    )
 
 
 if __name__ == "__main__":

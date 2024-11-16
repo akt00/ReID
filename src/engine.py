@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -34,8 +35,8 @@ def train_one_epoch(
     train_loss = 0.0
 
     for imgs, pids in tqdm(data_loader):
-        imgs: torch.Tensor = imgs.to(device=device)
-        pids: torch.Tensor = pids.to(device=device)
+        imgs: Tensor = imgs.to(device=device)
+        pids: Tensor = pids.to(device=device)
 
         with torch.amp.autocast(device_type="cuda", enabled=scaler is not None):
             preds = model(imgs)
@@ -72,7 +73,7 @@ def create_vector_store(
     model: torch.nn.Module,
     data_loader: DataLoader,
     device: torch.device = torch.device("cuda"),
-) -> dict[int, torch.Tensor]:
+) -> dict[int, Tensor]:
 
     model.eval()
     model.to(device=device)
@@ -81,8 +82,8 @@ def create_vector_store(
 
     with torch.no_grad():
         for imgs, pids in tqdm(data_loader):
-            imgs: torch.Tensor = imgs.to(device=device)
-            embs: torch.Tensor = model(imgs)
+            imgs: Tensor = imgs.to(device=device)
+            embs: Tensor = model(imgs)
 
             for e, p in zip(embs, pids):
                 p = int(p.item())
@@ -116,27 +117,26 @@ def evaluate(
         model=model, data_loader=gallery_loader, device=device
     )
 
+    print("Buliding topk reranker...")
     topk_acc = 0
     topk_reranker = ReRanker(topk=topk)
-
-    print("Buliding topk reranker...")
 
     for k, x in vector_store.items():
         y = [k for _ in range(x.size(0))]
         topk_reranker.append(x=x, y=y)
 
     print("Buliding cluster reranker...")
-
     cluster_acc = 0
-    cluster_reranker = ClusterReRanker(vector_store)
+    cluster_reranker = ClusterReRanker(clusters=vector_store)
 
+    print("Evaluating rerankers...")
     val_loss = 0.0
     violations = 0
 
     with torch.no_grad():
         for imgs, pids in tqdm(query_loader):
-            imgs: torch.Tensor = imgs.to(device=device)
-            pids: torch.Tensor = pids.to(device=device)
+            imgs: Tensor = imgs.to(device=device)
+            pids: Tensor = pids.to(device=device)
 
             x = model(imgs)
 

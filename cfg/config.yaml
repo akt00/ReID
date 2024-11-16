@@ -1,11 +1,11 @@
-dataset: Market-1501-v15.09.15
-market1501: true  # market1501 or custom dataset
+dataset: Market-1501-v15.09.15  # dataset path
+weights: results/best.pth
 aligned: false  # use local distance loss
-epochs: 50
+epochs: 60
 batch: 412
 lr: 0.05
 scaler: true  # automatic mixed precision training
-step: 8  # StepLR steps
+step: 9  # StepLR steps
 gamma: 0.5  # StepLR gamma
 margin: 0.5  # triplet loss margin
 workers: 2

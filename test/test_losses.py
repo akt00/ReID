@@ -5,9 +5,10 @@ from src import losses
 
 
 def test_triplet_semi_hard_negative():
-    e = torch.randn((800, 2048))
+    e = torch.randn((256, 2048))
     model = nn.Sequential(nn.Linear(2048, 2048))
-    out = model(e)
-    t = torch.randint(0, 750, (800,)).long()
-    res = losses.triplet_semi_hard_negative_mining(out, t)
-    assert res.item() >= 0
+    x = model(e)
+    y = torch.randint(0, 100, (256,)).long()
+    loss, count = losses.triplet_semi_hard_negative_mining(x, y)
+    assert loss.item() >= 0
+    assert count > 0

@@ -56,6 +56,7 @@ class TrackID:
             return dists
 
     def __len__(self) -> int:
+        """returns the number of embeddings"""
         return len(self.vector_store)
 
 
@@ -65,10 +66,6 @@ class ReRanker:
         self.device = device
         self.vector_store: list[Tensor] = []
         self.targets: list[Tensor] = []
-
-    def __len__(self) -> int:
-        assert len(self.vector_store) == len(self.targets)
-        return len(self.vector_store)
 
     def append(self, x: Tensor, y: Tensor | list):
         """stores embeddings
@@ -126,6 +123,11 @@ class ReRanker:
             target = y.unsqueeze(-1).expand_as(preds)
             return (preds == target).any(dim=-1).long()
 
+    def __len__(self) -> int:
+        """returns the number of embeddings"""
+        assert len(self.vector_store) == len(self.targets)
+        return len(self.vector_store)
+
 
 class ClusterReRanker:
     def __init__(
@@ -142,7 +144,6 @@ class ClusterReRanker:
                 self._append_new_cluster(track)
 
     def predict(self, x: Tensor) -> Tensor:
-        """vectorization not supported yet"""
         x = x.to(device=self.device)
         dists = []
 
@@ -155,6 +156,7 @@ class ClusterReRanker:
         preds = torch.tensor(
             [self.clusters[i].id for i in indices], dtype=torch.long, device=self.device
         )
+
         return preds
 
     def evalute(self, x: Tensor, y: Tensor) -> Tensor:

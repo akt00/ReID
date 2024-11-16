@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import torch
@@ -12,10 +13,7 @@ from src.engine import train_one_epoch, evaluate
 def train(cfg: dict):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    if cfg["market1501"]:
-        dataset = Market1501(Path(cfg["dataset"]))
-    else:
-        raise NotImplementedError()
+    dataset = Market1501(Path(cfg["dataset"]))
 
     train = ImageDataset(dataset=dataset.train)
     train_loader = DataLoader(
@@ -106,13 +104,16 @@ def train(cfg: dict):
 
         if best_acc < cluster_acc:
             best_acc = cluster_acc
+            path = Path("results")
+            os.makedirs(path, exist_ok=True)
+
             torch.save(
                 {
                     "epoch": e,
                     "model": model.state_dict(),
                     "optimizer": optim.state_dict(),
                 },
-                Path("best.pth"),
+                path / "best.pth",
             )
 
     print("Done!")
