@@ -10,17 +10,19 @@ from src.engine import evaluate
 
 
 def eval(cfg: dict):
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
     path = Path(cfg["dataset"])
     dataset = Market1501(path)
 
-    model = AlignedResNet50()
+    model = AlignedResNet50(cfg["aligned"])
     ckpt = torch.load(cfg["weights"], weights_only=True)
     model.load_state_dict(ckpt["model"])
 
     gallery = ImageDataset(dataset=dataset.gallery)
     gallery_loader = DataLoader(
         dataset=gallery,
-        batch_size=8,
+        batch_size=128,
         shuffle=False,
         num_workers=cfg["workers"],
         persistent_workers=cfg["persistent"],
@@ -29,14 +31,20 @@ def eval(cfg: dict):
     query = ImageDataset(dataset=dataset.query)
     query_loader = DataLoader(
         dataset=query,
-        batch_size=8,
+        batch_size=128,
         shuffle=False,
         num_workers=cfg["workers"],
         persistent_workers=cfg["persistent"],
     )
 
     loss, violations, topk_acc, cluster_acc = evaluate(
-        model=model, query_loader=query_loader, gallery_loader=gallery_loader
+        model=model,
+        query_loader=query_loader,
+        gallery_loader=gallery_loader,
+        margin=cfg["global_margin"],
+        topk=cfg["topk"],
+        knn=cfg["knn"],
+        device=device,
     )
 
     print(

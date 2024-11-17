@@ -27,7 +27,7 @@ def train(cfg: dict):
     gallery = ImageDataset(dataset=dataset.gallery)
     gallery_loader = DataLoader(
         dataset=gallery,
-        batch_size=8,
+        batch_size=32,
         shuffle=False,
         num_workers=cfg["workers"],
         persistent_workers=cfg["persistent"],
@@ -36,7 +36,7 @@ def train(cfg: dict):
     query = ImageDataset(dataset=dataset.query)
     query_loader = DataLoader(
         dataset=query,
-        batch_size=8,
+        batch_size=32,
         shuffle=False,
         num_workers=cfg["workers"],
         persistent_workers=cfg["persistent"],
@@ -83,8 +83,9 @@ def train(cfg: dict):
             data_loader=train_loader,
             scaler=scaler,
             lr_scheduler=lr_scheduler,
-            margin=cfg["margin"],
+            margin=cfg["global_margin"],
             aligned_loss=cfg["aligned"],
+            loccal_margin=cfg["local_margin"],
             device=device,
         )
 

@@ -1,13 +1,14 @@
 dataset: Market-1501-v15.09.15  # dataset path
 weights: results/best.pth
-aligned: false  # use local distance loss
-epochs: 60
-batch: 412
+aligned: true  # use local distance loss
+epochs: 45
+batch: 384
 lr: 0.05
 scaler: true  # automatic mixed precision training
-step: 9  # StepLR steps
+step: 6  # StepLR steps
 gamma: 0.5  # StepLR gamma
-margin: 0.5  # triplet loss margin
+global_margin: 0.5  # triplet loss margin for global feature
+local_margin: 0.5  # triplet loss margin for local feature
 workers: 2
 persistent: true
 optimizer: SGD  # SGD | AdamW

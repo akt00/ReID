@@ -3,7 +3,10 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from src.losses import triplet_semi_hard_negative_mining
+from src.losses import (
+    triplet_semi_hard_negative_mining,
+    aligned_triplet_semi_hard_negative_mining,
+)
 from src.reranking import ReRanker, ClusterReRanker
 
 
@@ -13,8 +16,9 @@ def train_one_epoch(
     data_loader: DataLoader,
     scaler: torch.GradScaler | None = None,
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = None,
-    margin: int = 0.5,
+    margin: float = 0.5,
     aligned_loss: bool = False,
+    loccal_margin: float = 0.3,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[float, int]:
 
@@ -39,13 +43,20 @@ def train_one_epoch(
         pids: Tensor = pids.to(device=device)
 
         with torch.amp.autocast(device_type="cuda", enabled=scaler is not None):
-            preds = model(imgs)
 
             if aligned_loss:
-                raise NotImplementedError()
+                ge, le = model(imgs)
+                loss, count = aligned_triplet_semi_hard_negative_mining(
+                    embeddings=ge,
+                    local_embeddings=le,
+                    pids=pids,
+                    global_margin=margin,
+                    local_margin=loccal_margin,
+                )
             else:
+                embs = model(imgs)
                 loss, count = triplet_semi_hard_negative_mining(
-                    embeddings=preds, pids=pids, margin=margin
+                    embeddings=embs, pids=pids, margin=margin
                 )
 
         train_loss += loss.item()
@@ -139,7 +150,7 @@ def evaluate(
             pids: Tensor = pids.to(device=device)
 
             x = model(imgs)
-
+            # local distance is only used for training
             loss, count = triplet_semi_hard_negative_mining(
                 embeddings=x, pids=pids, margin=margin
             )

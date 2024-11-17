@@ -5,22 +5,22 @@ from torch import Tensor
 
 
 def batched_euclidean(x: Tensor, y: Tensor, cosine: bool = True) -> Tensor:
-    """
+    """computes cartesian batch L2 norms
     Args:
-        x: query tensor of shape (n, dim)
-        y: gallery tensor of shape (m, dim)
+        x: query tensor of shape (n, dim, ...)
+        y: gallery tensor of shape (m, dim, ...)
         cosine: rescales to unit vector
     Returns:
-        dists: L2 norms in the feature dim, (n, m)
+        dists: L2 norms in the last feature dim, (n, m, ...)
     """
     if cosine:
         x = x / (torch.linalg.norm(x, ord=2, dim=-1, keepdim=True) + 1e-10)
         y = y / (torch.linalg.norm(y, ord=2, dim=-1, keepdim=True) + 1e-10)
 
-    n, dim = x.shape
-    m, _ = y.shape
-    x = x[:, None, :].expand(n, m, dim)
-    y = y[None, :, :].expand(n, m, dim)
+    n, *dim = x.shape
+    m, *dim = y.shape
+    x = x[:, None, :].expand(n, m, *dim)
+    y = y[None, :, :].expand(n, m, *dim)
     dists = torch.linalg.norm(x - y, ord=2, dim=-1, keepdim=False)
 
     return dists
@@ -29,10 +29,9 @@ def batched_euclidean(x: Tensor, y: Tensor, cosine: bool = True) -> Tensor:
 class TrackID:
     def __init__(self, track_id: int):
         self.id = track_id
-        self.creation_time = time.time()
+        # store embeddings
         self.vector_store: list[Tensor] = []
-        # more features will be added...
-        # self.track_ids: deque[tuple] = deque()
+        self.creation_time = time.time()
 
     def update(self, emb: Tensor):
         assert len(emb.shape) > 1
