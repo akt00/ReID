@@ -3,19 +3,32 @@ from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
+from torchvision.transforms import v2
 import yaml
 
 from src.dataset import Market1501, ImageDataset
-from src.models import AlignedResNet50
 from src.engine import train_one_epoch, evaluate
+from src.models import AlignedResNet50
 
 
 def train(cfg: dict):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    dataset = Market1501(Path(cfg["dataset"]))
+    path = Path(cfg["dataset"])
+    dataset = Market1501(path)
 
-    train = ImageDataset(dataset=dataset.train)
+    train = ImageDataset(
+        dataset=dataset.train,
+        transform=v2.Compose(
+            [
+                v2.RandomHorizontalFlip(),
+                v2.Resize(size=(224, 224)),
+                v2.ToDtype(dtype=torch.float32, scale=True),
+                v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                v2.RandomErasing(),
+            ]
+        ),
+    )
     train_loader = DataLoader(
         dataset=train,
         batch_size=cfg["batch"],
@@ -75,7 +88,7 @@ def train(cfg: dict):
     best_acc = 0.0
 
     for e in range(epochs):
-        print(f"----- Epoch {e} ----- at LR: {lr_scheduler.get_last_lr()[-1]}")
+        print(f"\n ----- Epoch {e + 1} ----- at LR: {lr_scheduler.get_last_lr()[-1]}")
 
         loss, count = train_one_epoch(
             model=model,
@@ -110,6 +123,7 @@ def train(cfg: dict):
 
             torch.save(
                 {
+                    "aligned": model.alinged,
                     "epoch": e,
                     "model": model.state_dict(),
                     "optimizer": optim.state_dict(),

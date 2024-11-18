@@ -18,10 +18,23 @@ def train_one_epoch(
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = None,
     margin: float = 0.5,
     aligned_loss: bool = False,
-    loccal_margin: float = 0.3,
+    loccal_margin: float = 0.5,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[float, int]:
-
+    """ train the model for one epoch
+    Args:
+        model: torch's model
+        optim: torch's optimizer
+        data_loader: torch's data loader on train dataset
+        scaler: GradScaler for automatic mixed-precision
+        lr_scheudler: learning rate scheduler
+        margin: global margin for triplet loss
+        alinged_loss: use local distances if true
+        local_margin: margin for local triplet loss
+        device: torch's device type
+    Returns:
+        a tuple of train loss and margin violation count
+    """
     model.train()
     model.to(device=device)
     """
@@ -85,7 +98,14 @@ def create_vector_store(
     data_loader: DataLoader,
     device: torch.device = torch.device("cuda"),
 ) -> dict[int, Tensor]:
-
+    """ creates a vector store with id-tensor pairs
+    Args:
+        model: embedding model
+        data_loader: data loader for gallery data
+        device: torch's device type
+    Retuns:
+        vector_store: {pid: embeddings}. embedding shape: (batch, )
+    """
     model.eval()
     model.to(device=device)
 
@@ -115,11 +135,26 @@ def evaluate(
     query_loader: DataLoader,
     gallery_loader: DataLoader,
     margin: float = 0.5,
-    topk: int = 3,
+    topk: int = 5,
     knn: bool = True,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[float, int, float, float]:
+    """evaluates the model performance with re-rankers
 
+    TopK re-ranker -> re-ranking with either top-k or knn
+    cluster re-ranker -> re-ranking with average distance
+
+    Args:
+        model: torch's model
+        query_loader: torch's data loader for query data
+        gallery_laoder: torch's data loader for gallery embeddings
+        margin: global margin for triplet loss
+        topk: k value for top-k
+        knn: use knn if true
+        device: torch's device type
+    Returns:
+        a tuple of val loss, margin violation count, top-k accuracy, and cluster accuracy
+    """
     model.eval()
     model.to(device=device)
 

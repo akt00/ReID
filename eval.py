@@ -5,8 +5,8 @@ from torch.utils.data import DataLoader
 import yaml
 
 from src.dataset import Market1501, ImageDataset
-from src.models import AlignedResNet50
 from src.engine import evaluate
+from src.models import AlignedResNet50
 
 
 def eval(cfg: dict):
@@ -25,7 +25,7 @@ def eval(cfg: dict):
         batch_size=128,
         shuffle=False,
         num_workers=cfg["workers"],
-        persistent_workers=cfg["persistent"],
+        persistent_workers=False,
     )
 
     query = ImageDataset(dataset=dataset.query)
@@ -34,7 +34,7 @@ def eval(cfg: dict):
         batch_size=128,
         shuffle=False,
         num_workers=cfg["workers"],
-        persistent_workers=cfg["persistent"],
+        persistent_workers=False,
     )
 
     loss, violations, topk_acc, cluster_acc = evaluate(

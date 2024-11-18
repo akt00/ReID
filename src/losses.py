@@ -5,7 +5,7 @@ from torch import Tensor, nn
 def triplet_semi_hard_negative_mining(
     embeddings: Tensor, pids: Tensor, margin: float = 0.5, reduction: str = "mean"
 ) -> Tensor:
-
+    """computes triplet loss with semi hard-negative mining"""
     device = embeddings.device
     triplet_count = 0
     batch_size = embeddings.size(0)
@@ -57,7 +57,13 @@ def triplet_semi_hard_negative_mining(
         raise NotImplementedError(f"Unsupported reduction mode: {reduction}")
 
 
-def shortest_path(dist_mat):
+def shortest_path(dist_mat: Tensor) -> Tensor:
+    """computes the shortest matching local features between two embeddings
+    Args:
+        dist_mat: distance matrix with shape (batch, n, m)
+    Retuns:
+        dist: shortest distance value in tensor
+    """
     m, n = dist_mat.size()[:2]
     dist = [[0 for _ in range(n)] for _ in range(m)]
     # shortest path with dynamic programming
@@ -97,10 +103,20 @@ def aligned_triplet_semi_hard_negative_mining(
     local_embeddings: Tensor,
     pids: Tensor,
     global_margin: float = 0.5,
-    local_margin: float = 0.3,
+    local_margin: float = 0.5,
     reduction: str = "mean",
 ) -> Tensor:
-
+    """computes triplet loss with global and local distances
+    Args:
+        embeddings: global embeddings with shape (batch, dim)
+        local_embeddings: local embeddings with shape (batch, dim, local rank)
+        pids: ground truth labels for ids
+        global_margin: margin for triplet loss with global features
+        local_margin: margin for triplet loss with local features
+        reduction: loss reduction methods, mean | sum
+    Returns:
+        a tuple of loss and margin global margin violation count
+    """
     device = embeddings.device
     triplet_count = 0
     loss = torch.tensor(0.0, device=device)

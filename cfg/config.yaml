@@ -1,8 +1,8 @@
 dataset: Market-1501-v15.09.15  # dataset path
-weights: results/best.pth
-aligned: true  # use local distance loss
-epochs: 45
-batch: 384
+weights: results/aligned.pth  # model weights
+aligned: false  # use local distance loss
+epochs: 60
+batch: 384  # higher batch size yeilds better results
 lr: 0.05
 scaler: true  # automatic mixed precision training
 step: 6  # StepLR steps
@@ -21,5 +21,5 @@ adamw:
     - 0.9  # beta 1
     - 0.95  # beta 2
   decay: !!float 1e-1  # weight decay
-topk: 3  # top-k for top-k re-ranking, n_neighbors for KNN
+topk: 5  # top-k for top-k re-ranking, n_neighbors for KNN
 knn: true  # use KNN for re-ranking

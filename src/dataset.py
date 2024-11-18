@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 
 import torch
-from torch import float32, Tensor
+from torch import Tensor
 from torch.utils.data import Dataset
 from torchvision.io import read_image, ImageReadMode
 from torchvision.transforms import v2
@@ -101,9 +101,8 @@ class ImageDataset(Dataset):
         dataset: list,
         transform: v2.Compose = v2.Compose(
             [
-                v2.RandomHorizontalFlip(),
                 v2.Resize(size=(224, 224)),
-                v2.ToDtype(dtype=float32, scale=True),
+                v2.ToDtype(dtype=torch.float32, scale=True),
                 v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         ),

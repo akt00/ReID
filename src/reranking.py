@@ -33,10 +33,14 @@ class TrackID:
         self.vector_store: list[Tensor] = []
         self.creation_time = time.time()
 
-    def update(self, emb: Tensor):
-        assert len(emb.shape) > 1
-        emb = emb.reshape(emb.size(0), -1)
-        self.vector_store += list(emb)
+    def update(self, embs: Tensor):
+        """add embedddings to the vector store
+        Args:
+            embs: embeddings with shape (batch, dim, ...)
+        """
+        assert len(embs.shape) > 1
+        embs = embs.reshape(embs.size(0), -1)
+        self.vector_store += list(embs)
 
     def duration(self) -> int:
         """
@@ -46,13 +50,27 @@ class TrackID:
         dur = int(time.time() - self.creation_time)
         return dur
 
-    def __call__(self, x: Tensor, reduction: bool = True) -> Tensor:
+    def __call__(self, x: Tensor, kmeans: bool = True) -> Tensor:
+        """coomputes the distances between x and vector store
+        Args:
+            x: embeddings with shape (batch, dim)
+            kmeans: either distance to the kmeans cluster or average distance to each cluster point
+        Returns:
+            dists: distances with (batch,)
+        """
         gallery = torch.stack(tensors=self.vector_store, dim=0)
-        dists = batched_euclidean(x, gallery)
-        if reduction:
-            return dists.mean(dim=-1)
-        else:
+        if kmeans:
+            cp = gallery.mean(dim=0)
+            # (dim,) -> (1, dim)
+            cp = cp.unsqueeze(dim=0)
+            cp = cp.expand(x.size(0), cp.size(-1))
+            cp = cp / (torch.linalg.norm(cp, ord=2, dim=-1, keepdim=True) + 1e-10)
+            x = x / (torch.linalg.norm(x, ord=2, dim=-1, keepdim=True) + 1e-10)
+            dists: Tensor = torch.linalg.norm(x - cp, ord=2, dim=-1, keepdim=False)
             return dists
+        else:
+            dists = batched_euclidean(x, gallery)
+            return dists.mean(dim=-1)
 
     def __len__(self) -> int:
         """returns the number of embeddings"""
@@ -60,7 +78,7 @@ class TrackID:
 
 
 class ReRanker:
-    def __init__(self, topk: int = 3, device: torch.device = torch.device("cuda")):
+    def __init__(self, topk: int = 5, device: torch.device = torch.device("cuda")):
         self.topk = topk
         self.device = device
         self.vector_store: list[Tensor] = []
@@ -130,7 +148,9 @@ class ReRanker:
 
 class ClusterReRanker:
     def __init__(
-        self, clusters: dict | None = None, device: torch.device = torch.device("cuda")
+        self,
+        clusters: dict[int, Tensor] | None = None,
+        device: torch.device = torch.device("cuda"),
     ):
         self.device = device
         self.clusters: list[TrackID] = []
@@ -143,11 +163,17 @@ class ClusterReRanker:
                 self._append_new_cluster(track)
 
     def predict(self, x: Tensor) -> Tensor:
+        """model inference on input tensor x
+        Args:
+            x: input query embeddings with shape (batch, dim)
+        Returns:
+            preds: predicted indices with shape (batch,)
+        """
         x = x.to(device=self.device)
         dists = []
 
         for c in self.clusters:
-            preds: Tensor = c(x)
+            preds: Tensor = c(x, kmeans=True)
             dists.append(preds)
 
         dists = torch.stack(dists, dim=-1)
@@ -159,15 +185,27 @@ class ClusterReRanker:
         return preds
 
     def evalute(self, x: Tensor, y: Tensor) -> Tensor:
+        """evaluates the predicted IDs
+        Args:
+            x: query embeddings with shape (batch, dim)
+            y: ground truth labels with shape (batch,)
+        Returns:
+            preds: evaluation results with shape (batch,) where correct predictions are 1, 0 otherwise
+        """
         x = x.to(device=self.device)
         y = y.to(device=self.device)
         preds = self.predict(x)
         return (preds == y).long()
 
     def _append_new_cluster(self, track: TrackID):
+        """appends a new cluster"""
+        if track.id in [[c.id for c in self.clusters]]:
+            raise ValueError(f"The cluster id already exists: {track.id}")
+
         self.clusters.append(track)
         self.ttls.append(time.time())
 
     def __len__(self) -> int:
+        """returns the number of clusters"""
         assert len(self.clusters) == len(self.ttls)
         return len(self.clusters)
