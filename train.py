@@ -110,6 +110,7 @@ def train(cfg: dict):
             gallery_loader=gallery_loader,
             topk=cfg["topk"],
             knn=cfg["knn"],
+            kmeans=cfg["kmeans"]
         )
 
         print(

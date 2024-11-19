@@ -137,6 +137,7 @@ def evaluate(
     margin: float = 0.5,
     topk: int = 5,
     knn: bool = True,
+    kmeans: bool = True,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[float, int, float, float]:
     """evaluates the model performance with re-rankers
@@ -150,7 +151,8 @@ def evaluate(
         gallery_laoder: torch's data loader for gallery embeddings
         margin: global margin for triplet loss
         topk: k value for top-k
-        knn: use knn if true
+        knn: use knn if true for topk re-ranking
+        kmeans: use kmeans distance metric for cluster re-ranking
         device: torch's device type
     Returns:
         a tuple of val loss, margin violation count, top-k accuracy, and cluster accuracy
@@ -195,7 +197,7 @@ def evaluate(
             res = topk_reranker.evaluate(x, pids, knn=knn)
             topk_acc += res.sum().item()
 
-            res = cluster_reranker.evalute(x, pids)
+            res = cluster_reranker.evalute(x, pids, kmeans=kmeans)
             cluster_acc += res.sum().item()
 
     return (

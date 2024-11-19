@@ -162,10 +162,11 @@ class ClusterReRanker:
                 track.update(v)
                 self._append_new_cluster(track)
 
-    def predict(self, x: Tensor) -> Tensor:
+    def predict(self, x: Tensor, kmeans: bool = True) -> Tensor:
         """model inference on input tensor x
         Args:
             x: input query embeddings with shape (batch, dim)
+            kmeans: use kmeans center for distance metric
         Returns:
             preds: predicted indices with shape (batch,)
         """
@@ -173,7 +174,7 @@ class ClusterReRanker:
         dists = []
 
         for c in self.clusters:
-            preds: Tensor = c(x, kmeans=True)
+            preds: Tensor = c(x, kmeans=kmeans)
             dists.append(preds)
 
         dists = torch.stack(dists, dim=-1)
@@ -184,17 +185,18 @@ class ClusterReRanker:
 
         return preds
 
-    def evalute(self, x: Tensor, y: Tensor) -> Tensor:
+    def evalute(self, x: Tensor, y: Tensor, kmeans: bool = True) -> Tensor:
         """evaluates the predicted IDs
         Args:
             x: query embeddings with shape (batch, dim)
             y: ground truth labels with shape (batch,)
+            kmeans: use kmeans center for distance metric
         Returns:
             preds: evaluation results with shape (batch,) where correct predictions are 1, 0 otherwise
         """
         x = x.to(device=self.device)
         y = y.to(device=self.device)
-        preds = self.predict(x)
+        preds = self.predict(x, kmeans=kmeans)
         return (preds == y).long()
 
     def _append_new_cluster(self, track: TrackID):

@@ -1,14 +1,14 @@
 dataset: Market-1501-v15.09.15  # dataset path
-weights: results/aligned.pth  # model weights
-aligned: false  # use local distance loss
+weights: results/global.pth  # model weights
+aligned: true  # use local distance loss
 epochs: 60
-batch: 384  # higher batch size yeilds better results
+batch: 384  # higher batch sizes yield better results
 lr: 0.05
 scaler: true  # automatic mixed precision training
 step: 6  # StepLR steps
 gamma: 0.5  # StepLR gamma
 global_margin: 0.5  # triplet loss margin for global feature
-local_margin: 0.5  # triplet loss margin for local feature
+local_margin: 0.25  # triplet loss margin for local feature
 workers: 2
 persistent: true
 optimizer: SGD  # SGD | AdamW
@@ -23,3 +23,4 @@ adamw:
   decay: !!float 1e-1  # weight decay
 topk: 5  # top-k for top-k re-ranking, n_neighbors for KNN
 knn: true  # use KNN for re-ranking
+kmeans: true  # use kmeans disntace metric for cluster re-ranking

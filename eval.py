@@ -44,6 +44,7 @@ def eval(cfg: dict):
         margin=cfg["global_margin"],
         topk=cfg["topk"],
         knn=cfg["knn"],
+        kmeans=cfg["kmeans"],
         device=device,
     )
 

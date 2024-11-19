@@ -60,7 +60,7 @@ def triplet_semi_hard_negative_mining(
 def shortest_path(dist_mat: Tensor) -> Tensor:
     """computes the shortest matching local features between two embeddings
     Args:
-        dist_mat: distance matrix with shape (batch, n, m)
+        dist_mat: distance matrix with shape (n, m, batch)
     Retuns:
         dist: shortest distance value in tensor
     """
