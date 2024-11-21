@@ -1,5 +1,5 @@
 dataset: Market-1501-v15.09.15  # dataset path
-weights: results/aligned.pth  # model weights
+weights: results/best.pth  # model weights
 aligned: true  # use local distance loss
 epochs: 60
 batch: 384  # higher batch sizes yield better results
