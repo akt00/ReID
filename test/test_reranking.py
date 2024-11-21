@@ -54,14 +54,14 @@ class TesteReRanker:
     DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     def test_append(self):
-        ranker = reranking.ReRanker()
+        ranker = reranking.ReRanker(device=self.DEVICE)
         x = torch.randn((16, 128), device=self.DEVICE)
         y = torch.randint(0, 5, (16,), device=self.DEVICE)
         ranker.append(x=x, y=y)
         assert len(ranker) == 16
 
     def test_predict(self):
-        ranker = reranking.ReRanker()
+        ranker = reranking.ReRanker(device=self.DEVICE)
         x = torch.randn((16, 128), device=self.DEVICE)
         y = torch.randint(0, 5, (16,), device=self.DEVICE)
         ranker.append(x=x, y=y)
@@ -69,7 +69,7 @@ class TesteReRanker:
         assert preds.shape == (16, 5)
 
     def test_evaluate(self):
-        ranker = reranking.ReRanker()
+        ranker = reranking.ReRanker(device=self.DEVICE)
         x = torch.randn((16, 128), device=self.DEVICE)
         y = torch.randint(0, 5, (16,), device=self.DEVICE)
         ranker.append(x=x, y=y)
@@ -84,7 +84,7 @@ class TestClusterReRanker:
         clusters = {}
         for i in range(5):
             clusters.update({i: torch.randn((4, 128), device=self.DEVICE)})
-        ranker = reranking.ClusterReRanker(clusters=clusters)
+        ranker = reranking.ClusterReRanker(clusters=clusters, device=self.DEVICE)
         preds = ranker.predict(x=torch.randn((4, 128), device=self.DEVICE))
         assert preds.shape == (4,)
 
@@ -92,7 +92,7 @@ class TestClusterReRanker:
         clusters = {}
         for i in range(5):
             clusters.update({i: torch.randn((4, 128), device=self.DEVICE)})
-        ranker = reranking.ClusterReRanker(clusters=clusters)
+        ranker = reranking.ClusterReRanker(clusters=clusters, device=self.DEVICE)
         preds = ranker.evalute(
             x=torch.randn((4, 128), device=self.DEVICE),
             y=torch.randint(0, 5, (4,), device=self.DEVICE),
@@ -103,6 +103,6 @@ class TestClusterReRanker:
         clusters = {}
         for i in range(5):
             clusters.update({i: torch.randn((4, 128), device=self.DEVICE)})
-        ranker = reranking.ClusterReRanker(clusters=clusters)
+        ranker = reranking.ClusterReRanker(clusters=clusters, device=self.DEVICE)
         ranker.append(x=torch.randn((4, 128), device=self.DEVICE), index=2)
         assert len(ranker.clusters[2]) == 8
