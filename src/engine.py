@@ -21,7 +21,7 @@ def train_one_epoch(
     loccal_margin: float = 0.5,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[float, int]:
-    """ train the model for one epoch
+    """train the model for one epoch
     Args:
         model: torch's model
         optim: torch's optimizer
@@ -98,7 +98,7 @@ def create_vector_store(
     data_loader: DataLoader,
     device: torch.device = torch.device("cuda"),
 ) -> dict[int, Tensor]:
-    """ creates a vector store with id-tensor pairs
+    """creates a vector store with id-tensor pairs
     Args:
         model: embedding model
         data_loader: data loader for gallery data
@@ -135,8 +135,8 @@ def evaluate(
     query_loader: DataLoader,
     gallery_loader: DataLoader,
     margin: float = 0.5,
-    topk: int = 5,
     knn: bool = True,
+    topk: int = 5,
     kmeans: bool = True,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[float, int, float, float]:
@@ -167,7 +167,7 @@ def evaluate(
 
     print("Buliding topk reranker...")
     topk_acc = 0
-    topk_reranker = ReRanker(topk=topk)
+    topk_reranker = ReRanker(device=device)
 
     for k, x in vector_store.items():
         y = [k for _ in range(x.size(0))]
@@ -175,7 +175,7 @@ def evaluate(
 
     print("Buliding cluster reranker...")
     cluster_acc = 0
-    cluster_reranker = ClusterReRanker(clusters=vector_store)
+    cluster_reranker = ClusterReRanker(clusters=vector_store, device=device)
 
     print("Evaluating rerankers...")
     val_loss = 0.0
@@ -194,10 +194,10 @@ def evaluate(
             val_loss += loss.item()
             violations += count
 
-            res = topk_reranker.evaluate(x, pids, knn=knn)
+            res = topk_reranker.evaluate(x=x, y=pids, topk=topk, knn=knn)
             topk_acc += res.sum().item()
 
-            res = cluster_reranker.evalute(x, pids, kmeans=kmeans)
+            res = cluster_reranker.evalute(x=x, y=pids, kmeans=kmeans)
             cluster_acc += res.sum().item()
 
     return (
@@ -206,3 +206,73 @@ def evaluate(
         topk_acc / len(query_loader.dataset),
         cluster_acc / len(query_loader.dataset),
     )
+
+
+def evaluate_map(
+    model: torch.nn.Module,
+    query_loader: DataLoader,
+    gallery_loader: DataLoader,
+    margin: float = 0.5,
+    topk: int = 5,
+    device: torch.device = torch.device("cuda"),
+) -> tuple[float, int, float, float]:
+    """evaluates the model performance with re-rankers
+
+    TopK re-ranker -> re-ranking with either top-k or knn
+    cluster re-ranker -> re-ranking with average distance
+
+    Args:
+        model: torch's model
+        query_loader: torch's data loader for query data
+        gallery_laoder: torch's data loader for gallery embeddings
+        margin: global margin for triplet loss
+        topk: k value for top-k
+        device: torch's device type
+    Returns:
+        a tuple of val loss, margin violation count, top-k accuracy, and cluster accuracy
+    """
+    model.eval()
+    model.to(device=device)
+
+    print("Buliding vector store...")
+    vector_store = create_vector_store(
+        model=model, data_loader=gallery_loader, device=device
+    )
+
+    print("Buliding topk reranker...")
+    topk_reranker = ReRanker(device=device)
+
+    for k, x in vector_store.items():
+        y = [k for _ in range(x.size(0))]
+        topk_reranker.append(x=x, y=y)
+
+    print("Evaluating rerankers...")
+    val_loss = 0.0
+    total_ap = 0.0
+    violations = 0
+
+    with torch.no_grad():
+        for imgs, pids in tqdm(query_loader):
+            imgs: Tensor = imgs.to(device=device)
+            pids: Tensor = pids.to(device=device)
+
+            x = model(imgs)
+            # local distance is only used for training
+            loss, count = triplet_semi_hard_negative_mining(
+                embeddings=x, pids=pids, margin=margin
+            )
+            val_loss += loss.item()
+            violations += count
+
+            pred = topk_reranker.predict(x=x, topk=topk)
+            pred = pred == pids.unsqueeze(-1).expand(pids.size(0), topk)
+            total_precision = 0
+
+            for i in range(topk):
+                k = i + 1
+                p = pred[:, :k]
+                p = p.sum(-1) / k
+                total_precision += p
+            total_ap += (total_precision / topk).sum()
+
+    return (total_ap / len(query_loader.dataset)).item()

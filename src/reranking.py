@@ -78,8 +78,7 @@ class TrackID:
 
 
 class ReRanker:
-    def __init__(self, topk: int = 5, device: torch.device = torch.device("cuda")):
-        self.topk = topk
+    def __init__(self, device: torch.device = torch.device("cuda")):
         self.device = device
         self.vector_store: list[Tensor] = []
         self.targets: list[Tensor] = []
@@ -98,13 +97,14 @@ class ReRanker:
         else:
             self.targets += y
 
-    def predict(self, x: Tensor) -> Tensor:
+    def predict(self, x: Tensor, topk: int = 5) -> Tensor:
         """predicts the top-k class labels
         Args:
             x: batched query embeddings, (batch, N, ...)
         Returns:
             the predicted class labels in (batch, top-k)
         """
+        assert len(self) > 0
         x = x.reshape(x.size(0), -1)
         x = x.to(device=self.device)
         # n, dim = x.shape
@@ -112,14 +112,16 @@ class ReRanker:
         vs = vs.to(device=self.device)
         # m, _ = vs.shape
         dists = batched_euclidean(x=x, y=vs, cosine=True)
-        topk_preds = dists.topk(self.topk, largest=False, dim=-1)
+        topk_preds = dists.topk(topk, largest=False, dim=-1)
 
         indices = topk_preds.indices
         targets = torch.tensor(self.targets, device=self.device).long()
 
         return targets[indices]
 
-    def evaluate(self, x: Tensor, y: Tensor, knn: bool = False) -> Tensor:
+    def evaluate(
+        self, x: Tensor, y: Tensor, topk: int = 5, knn: bool = False
+    ) -> Tensor:
         """evalute the class predictions
         Args:
             x: batched query embeddings, (batch, N, ...)
@@ -131,7 +133,7 @@ class ReRanker:
         x = x.to(device=self.device)
         y = y.to(device=self.device)
 
-        preds = self.predict(x)
+        preds = self.predict(x=x, topk=topk)
 
         if knn:
             preds = preds.mode().values
@@ -161,6 +163,15 @@ class ClusterReRanker:
                 track = TrackID(k)
                 track.update(v)
                 self._append_new_cluster(track)
+
+    def append(self, x: Tensor, index: int):
+        """appends embeddings to an existing cluster
+
+        Args:
+            x: embeddings with shape (batch, dim, ...)
+            index: the cluster index obtained from the predict method
+        """
+        self.clusters[index].update(embs=x)
 
     def predict(self, x: Tensor, kmeans: bool = True) -> Tensor:
         """model inference on input tensor x

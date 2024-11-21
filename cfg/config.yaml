@@ -1,9 +1,8 @@
 dataset: Market-1501-v15.09.15  # dataset path
-weights: results/global.pth  # model weights
+weights: results/aligned.pth  # model weights
 aligned: true  # use local distance loss
 epochs: 60
-batch: 384  # higher batch sizes yield better results
-lr: 0.05
+batch: 128  # higher batch sizes yield better results
 scaler: true  # automatic mixed precision training
 step: 6  # StepLR steps
 gamma: 0.5  # StepLR gamma
@@ -13,14 +12,16 @@ workers: 2
 persistent: true
 optimizer: SGD  # SGD | AdamW
 sgd:
+  lr: 0.05
   momentum: 0.9
-  decay: !!float 1e-4  # weight decay
+  decay: !!float 0  # weight decay
   nesterov: true
 adamw:
+  lr: 0.001
   betas:
     - 0.9  # beta 1
-    - 0.95  # beta 2
-  decay: !!float 1e-1  # weight decay
+    - 0.99  # beta 2
+  decay: 0.01  # weight decay
 topk: 5  # top-k for top-k re-ranking, n_neighbors for KNN
-knn: true  # use KNN for re-ranking
+knn: false  # use KNN for re-ranking
 kmeans: true  # use kmeans disntace metric for cluster re-ranking

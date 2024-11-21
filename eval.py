@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import yaml
 
 from src.dataset import Market1501, ImageDataset
-from src.engine import evaluate
+from src.engine import evaluate, evaluate_map
 from src.models import AlignedResNet50
 
 
@@ -48,8 +48,15 @@ def eval(cfg: dict):
         device=device,
     )
 
+    map = evaluate_map(
+        model=model,
+        query_loader=query_loader,
+        gallery_loader=gallery_loader,
+    )
+
     print(
-        f"Val:  Loss:{loss}  Total Violations:{violations}  TopK ACC:{topk_acc:.4f}  Cluster ACC:{cluster_acc:.4f}"
+        f"Val:  Loss:{loss:.4f}  Total Violations:{violations}  Top{cfg['topk']} ACC:{topk_acc:.4f}"
+        f"  Cluster ACC:{cluster_acc:.4f}  mAP@{cfg['topk']}: {map:.4f}"
     )
 
 

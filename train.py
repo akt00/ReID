@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import torch
+import torch.optim.adam
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 import yaml
@@ -62,7 +63,7 @@ def train(cfg: dict):
             sgd_cfg = cfg["sgd"]
             optim = torch.optim.SGD(
                 params=model.parameters(),
-                lr=cfg["lr"],
+                lr=sgd_cfg["lr"],
                 momentum=sgd_cfg["momentum"],
                 weight_decay=sgd_cfg["decay"],
                 nesterov=sgd_cfg["nesterov"],
@@ -71,7 +72,7 @@ def train(cfg: dict):
             adamw_cfg = cfg["adamw"]
             optim = torch.optim.AdamW(
                 params=model.parameters(),
-                lr=cfg["lr"],
+                lr=adamw_cfg["lr"],
                 betas=adamw_cfg["betas"],
                 weight_decay=adamw_cfg["decay"],
             )
