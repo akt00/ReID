@@ -2,7 +2,7 @@ dataset: Market-1501-v15.09.15  # dataset path
 weights: results/aligned.pth  # model weights
 aligned: true  # use local distance loss
 epochs: 60
-batch: 128  # higher batch sizes yield better results
+batch: 384  # higher batch sizes yield better results
 scaler: true  # automatic mixed precision training
 step: 6  # StepLR steps
 gamma: 0.5  # StepLR gamma
@@ -23,5 +23,5 @@ adamw:
     - 0.99  # beta 2
   decay: 0.01  # weight decay
 topk: 5  # top-k for top-k re-ranking, n_neighbors for KNN
-knn: false  # use KNN for re-ranking
+knn: true  # use KNN for re-ranking
 kmeans: true  # use kmeans disntace metric for cluster re-ranking
