@@ -41,6 +41,9 @@ python3 train.py
 python3 eval.py
 ```
 
+## Sample reidentification demo with Mask R-CNN
+![Sample re-identification](./docs/sample.gif)
+
 # References
 1. [https://arxiv.org/abs/1711.08184](https://arxiv.org/abs/1711.08184)
 2. [https://arxiv.org/abs/1503.03832](https://arxiv.org/abs/1503.03832)
